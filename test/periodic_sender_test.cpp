@@ -22,17 +22,25 @@ namespace
   }
 } // namespace
 
-TEST(PeriodicSenderTest, SendsAtConfiguredFrequency)
+class PeriodicSenderTest : public testing::Test
 {
-  PeriodicSender sender;
-  sender.setPeriod(std::chrono::microseconds(10000)); // 100 Hz -> 10 ms period
-  std::atomic<int> send_count{0};
-  sender.setCollectFn([]() { return std::vector<mavlink_message_t>{makeMessage()}; });
-  sender.setSendFn([&](const mavlink_message_t&) {
-    ++send_count;
-    return true;
-  });
+protected:
+  void SetUp() override
+  {
+    sender.setPeriod(std::chrono::microseconds(10000)); // 100 Hz -> 10 ms period
+    sender.setCollectFn([]() { return std::vector<mavlink_message_t>{makeMessage()}; });
+    sender.setSendFn([&](const mavlink_message_t&) {
+      ++send_count;
+      return true;
+    });
+  }
 
+  PeriodicSender sender;
+  std::atomic<int> send_count{0};
+};
+
+TEST_F(PeriodicSenderTest, SendsAtConfiguredFrequency)
+{
   sender.start();
   std::this_thread::sleep_for(kWaitWindow);
   sender.stop();
@@ -42,16 +50,9 @@ TEST(PeriodicSenderTest, SendsAtConfiguredFrequency)
   EXPECT_LE(send_count.load(), 20);
 }
 
-TEST(PeriodicSenderTest, SendsNothingWhenCollectReturnsEmpty)
+TEST_F(PeriodicSenderTest, SendsNothingWhenCollectReturnsEmpty)
 {
-  PeriodicSender sender;
-  sender.setPeriod(std::chrono::microseconds(10000));
-  std::atomic<int> send_count{0};
   sender.setCollectFn([]() { return std::vector<mavlink_message_t>{}; });
-  sender.setSendFn([&](const mavlink_message_t&) {
-    ++send_count;
-    return true;
-  });
 
   sender.start();
   std::this_thread::sleep_for(kWaitWindow);
@@ -60,17 +61,10 @@ TEST(PeriodicSenderTest, SendsNothingWhenCollectReturnsEmpty)
   EXPECT_EQ(send_count.load(), 0);
 }
 
-TEST(PeriodicSenderTest, SendsAllMessagesInVector)
+TEST_F(PeriodicSenderTest, SendsAllMessagesInVector)
 {
-  PeriodicSender sender;
-  sender.setPeriod(std::chrono::microseconds(10000));
-  std::atomic<int> send_count{0};
   sender.setCollectFn([]() {
     return std::vector<mavlink_message_t>{makeMessage(), makeMessage(), makeMessage()};
-  });
-  sender.setSendFn([&](const mavlink_message_t&) {
-    ++send_count;
-    return true;
   });
 
   sender.start();
@@ -81,11 +75,8 @@ TEST(PeriodicSenderTest, SendsAllMessagesInVector)
   EXPECT_GE(send_count.load(), 6);
 }
 
-TEST(PeriodicSenderTest, KeepsSendingOnIndividualSendFailure)
+TEST_F(PeriodicSenderTest, KeepsSendingOnIndividualSendFailure)
 {
-  PeriodicSender sender;
-  sender.setPeriod(std::chrono::microseconds(10000));
-  std::atomic<int> send_count{0};
   sender.setCollectFn([]() {
     return std::vector<mavlink_message_t>{makeMessage(), makeMessage()};
   });
@@ -103,16 +94,10 @@ TEST(PeriodicSenderTest, KeepsSendingOnIndividualSendFailure)
   EXPECT_GE(send_count.load(), 4);
 }
 
-TEST(PeriodicSenderTest, StartIsNoOpWhenRunning)
+TEST_F(PeriodicSenderTest, StartIsNoOpWhenRunning)
 {
-  PeriodicSender sender;
-  sender.setPeriod(std::chrono::microseconds(10000));
-  std::atomic<int> send_count{0};
-  sender.setCollectFn([]() { return std::vector<mavlink_message_t>{makeMessage()}; });
-  sender.setSendFn([&](const mavlink_message_t&) { ++send_count; return true; });
-
-  EXPECT_TRUE(sender.start());
-  EXPECT_TRUE(sender.start()); // no-op, still one thread
+  EXPECT_EQ(sender.start(), true);
+  EXPECT_EQ(sender.start(), true); // no-op, still one thread
   std::this_thread::sleep_for(kWaitWindow);
   sender.stop();
 
@@ -120,36 +105,30 @@ TEST(PeriodicSenderTest, StartIsNoOpWhenRunning)
   EXPECT_LE(send_count.load(), 20);
 }
 
-TEST(PeriodicSenderTest, StopIsNoOpWhenStopped)
+TEST_F(PeriodicSenderTest, StopIsNoOpWhenStopped)
 {
-  PeriodicSender sender;
   sender.stop(); // should not crash/hang when already stopped
-  EXPECT_FALSE(sender.isRunning());
+  EXPECT_EQ(sender.isRunning(), false);
 }
 
-TEST(PeriodicSenderTest, RepeatedStartStopCycles)
+TEST_F(PeriodicSenderTest, RepeatedStartStopCycles)
 {
-  PeriodicSender sender;
-  sender.setPeriod(std::chrono::microseconds(10000));
-  std::atomic<int> send_count{0};
-  sender.setCollectFn([]() { return std::vector<mavlink_message_t>{makeMessage()}; });
-  sender.setSendFn([&](const mavlink_message_t&) { ++send_count; return true; });
-
   for (int i = 0; i < 3; ++i) {
-    EXPECT_TRUE(sender.start());
+    EXPECT_EQ(sender.start(), true);
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
     sender.stop();
-    EXPECT_FALSE(sender.isRunning());
+    EXPECT_EQ(sender.isRunning(), false);
   }
 }
 
-TEST(PeriodicSenderTest, WorksWithUnsetCallbacks)
+TEST_F(PeriodicSenderTest, WorksWithUnsetCallbacks)
 {
   // No collect/send callbacks set: the loop should run without crashing and send nothing.
-  PeriodicSender sender;
-  sender.setPeriod(std::chrono::microseconds(10000));
+  sender.setCollectFn({});
+  sender.setSendFn({});
+
   sender.start();
   std::this_thread::sleep_for(kWaitWindow);
   sender.stop();
-  EXPECT_FALSE(sender.isRunning());
+  EXPECT_EQ(sender.isRunning(), false);
 }
