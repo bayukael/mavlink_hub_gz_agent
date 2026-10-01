@@ -18,6 +18,7 @@ namespace pendarlab::sdk::mavlink_hub
     std::string navsat_topic;
     std::string actuator_topic;
     std::string mavlink_endpoint_name;
+    double send_freq = 250.0;
     bool use_topic_generator = false;
 
     void generateTopics()

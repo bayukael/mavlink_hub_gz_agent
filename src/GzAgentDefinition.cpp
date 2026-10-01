@@ -3,6 +3,7 @@
 #include "GzAgent.h"
 #include "GzAgentConfig.h"
 
+#include <exception>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -18,7 +19,7 @@ namespace pendarlab::sdk::mavlink_hub
     auto getRequired = [&cfg, &result, &hasError](const std::string& key) -> std::string {
       auto it = cfg.find(key);
       if (it == cfg.end()) {
-        result.messages.push_back("[GzAgent] required entry is missing: " + key);
+        result.messages.push_back("[GzAgent]: required entry is missing: " + key);
         hasError = true;
         return "";
       }
@@ -32,6 +33,22 @@ namespace pendarlab::sdk::mavlink_hub
     auto genIt = cfg.find("use_topic_generator");
     config->use_topic_generator = genIt != cfg.end() && (genIt->second == "true" || genIt->second == "1");
 
+    auto freqIt = cfg.find("send_freq");
+    if (freqIt != cfg.end()) {
+      try {
+        const double freq = std::stod(freqIt->second);
+        if (freq <= 0.0) {
+          result.messages.push_back("[GzAgent]: send_freq must be a positive number: " + freqIt->second);
+          hasError = true;
+        } else {
+          config->send_freq = freq;
+        }
+      } catch (const std::exception&) {
+        result.messages.push_back("[GzAgent]: send_freq is not a valid number: " + freqIt->second);
+        hasError = true;
+      }
+    }
+
     if (config->use_topic_generator) {
       config->generateTopics();
     }
@@ -42,7 +59,7 @@ namespace pendarlab::sdk::mavlink_hub
         return it->second;
       }
       if (required) {
-        result.messages.push_back("[GzAgent] required entry is missing: " + key);
+        result.messages.push_back("[GzAgent]: required entry is missing: " + key);
         hasError = true;
         return "";
       }

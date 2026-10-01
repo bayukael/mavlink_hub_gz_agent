@@ -18,6 +18,7 @@ find_package(sdformat14 REQUIRED)
 add_library(MavlinkHubGzAgent SHARED
   src/GzAgent.cpp
   src/GzAgentDefinition.cpp
+  src/PeriodicSender.cpp
 )
 target_include_directories(MavlinkHubGzAgent PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -40,6 +41,18 @@ target_include_directories(GzAgentConfigTest PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_link_libraries(GzAgentConfigTest
+  PRIVATE MavlinkHubGzAgent
+  PRIVATE pendarlab::MavlinkHubSdk
+  PRIVATE GTest::gtest_main
+)
+
+add_executable(PeriodicSenderTest
+  test/periodic_sender_test.cpp
+)
+target_include_directories(PeriodicSenderTest PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(PeriodicSenderTest
   PRIVATE MavlinkHubGzAgent
   PRIVATE pendarlab::MavlinkHubSdk
   PRIVATE GTest::gtest_main

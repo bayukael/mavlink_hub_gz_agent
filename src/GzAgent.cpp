@@ -1,5 +1,7 @@
 #include "GzAgent.h"
 
+#include "PeriodicSender.h"
+
 #include <gz/msgs/double_v.pb.h>
 #include <gz/msgs/fluid_pressure.pb.h>
 #include <gz/msgs/imu.pb.h>
@@ -22,6 +24,8 @@ namespace pendarlab::sdk::mavlink_hub
 
     std::unique_ptr<IManagerResourceRequester> requester;
     std::unique_ptr<IMavlinkEndpointUser> endpoint_user;
+
+    PeriodicSender send_sender;
 
     gz::transport::Node node;
     gz::transport::Node::Publisher gz_actuator_pub;
@@ -112,6 +116,8 @@ namespace pendarlab::sdk::mavlink_hub
     d->node.Subscribe(config.navsat_topic, &GzAgentImpl::navsat_callback, d.get());
 
     d->gz_actuator_pub = d->node.Advertise<gz::msgs::Double_V>(config.actuator_topic);
+
+    d->send_sender.setPeriod(std::chrono::microseconds(static_cast<int64_t>(1'000'000.0 / config.send_freq)));
   }
 
   GzAgent::~GzAgent() = default;
@@ -126,11 +132,20 @@ namespace pendarlab::sdk::mavlink_hub
         return false;
       }
     }
+
+    d->send_sender.setSendFn([this](const mavlink_message_t& msg) {
+      return d->endpoint_user != nullptr && d->endpoint_user->writeMessage(msg).has_value();
+    });
+    // The collect function (conversion from gz::msgs to HIL messages) is provided by
+    // the companion conversion task (T-4). Until then the loop collects nothing.
+    d->send_sender.start();
+
     return true;
   }
 
   bool GzAgent::doStop()
   {
+    d->send_sender.stop();
     return true;
   }
 
