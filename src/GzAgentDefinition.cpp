@@ -33,6 +33,26 @@ namespace pendarlab::sdk::mavlink_hub
     auto genIt = cfg.find("use_topic_generator");
     config->use_topic_generator = genIt != cfg.end() && (genIt->second == "true" || genIt->second == "1");
 
+    auto unitIt = cfg.find("gz_magnetometer_unit");
+    if (unitIt != cfg.end()) {
+      if (unitIt->second == "tesla" || unitIt->second == "gauss") {
+        config->gz_magnetometer_unit = unitIt->second;
+      } else {
+        result.messages.push_back("[GzAgent]: gz_magnetometer_unit must be 'tesla' or 'gauss': " + unitIt->second);
+        hasError = true;
+      }
+    }
+
+    auto frameIt = cfg.find("gz_magnetometer_frame");
+    if (frameIt != cfg.end()) {
+      if (frameIt->second == "ned" || frameIt->second == "enu") {
+        config->gz_magnetometer_frame = frameIt->second;
+      } else {
+        result.messages.push_back("[GzAgent]: gz_magnetometer_frame must be 'ned' or 'enu': " + frameIt->second);
+        hasError = true;
+      }
+    }
+
     auto freqIt = cfg.find("send_freq");
     if (freqIt != cfg.end()) {
       try {

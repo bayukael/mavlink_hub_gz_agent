@@ -20,6 +20,8 @@ namespace pendarlab::sdk::mavlink_hub
     std::string mavlink_endpoint_name;
     double send_freq = 250.0;
     bool use_topic_generator = false;
+    std::string gz_magnetometer_unit = "tesla";
+    std::string gz_magnetometer_frame = "ned";
 
     void generateTopics()
     {

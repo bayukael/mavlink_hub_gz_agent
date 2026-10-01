@@ -106,4 +106,55 @@ namespace pendarlab::sdk::mavlink_hub
     EXPECT_FALSE(result.ok());
     EXPECT_EQ(result.parsed, nullptr);
   }
+
+  TEST(GzAgentDefinitionParseConfig, MagnetometerUnitDefaultsToTesla)
+  {
+    auto result = def.parseConfig(validBaseConfig());
+
+    ASSERT_TRUE(result.ok());
+    const auto* config = static_cast<const GzAgentConfig*>(result.parsed.get());
+    EXPECT_EQ(config->gz_magnetometer_unit, "tesla");
+  }
+
+  TEST(GzAgentDefinitionParseConfig, MagnetometerFrameDefaultsToNed)
+  {
+    auto result = def.parseConfig(validBaseConfig());
+
+    ASSERT_TRUE(result.ok());
+    const auto* config = static_cast<const GzAgentConfig*>(result.parsed.get());
+    EXPECT_EQ(config->gz_magnetometer_frame, "ned");
+  }
+
+  TEST(GzAgentDefinitionParseConfig, MagnetometerUnitAndFrameParsedWhenProvided)
+  {
+    auto cfg = validBaseConfig();
+    cfg["gz_magnetometer_unit"] = "gauss";
+    cfg["gz_magnetometer_frame"] = "enu";
+    auto result = def.parseConfig(cfg);
+
+    ASSERT_TRUE(result.ok());
+    const auto* config = static_cast<const GzAgentConfig*>(result.parsed.get());
+    EXPECT_EQ(config->gz_magnetometer_unit, "gauss");
+    EXPECT_EQ(config->gz_magnetometer_frame, "enu");
+  }
+
+  TEST(GzAgentDefinitionParseConfig, InvalidMagnetometerUnitSetsParsedToNull)
+  {
+    auto cfg = validBaseConfig();
+    cfg["gz_magnetometer_unit"] = "weber";
+    auto result = def.parseConfig(cfg);
+
+    EXPECT_FALSE(result.ok());
+    EXPECT_EQ(result.parsed, nullptr);
+  }
+
+  TEST(GzAgentDefinitionParseConfig, InvalidMagnetometerFrameSetsParsedToNull)
+  {
+    auto cfg = validBaseConfig();
+    cfg["gz_magnetometer_frame"] = "east_up_north";
+    auto result = def.parseConfig(cfg);
+
+    EXPECT_FALSE(result.ok());
+    EXPECT_EQ(result.parsed, nullptr);
+  }
 } // namespace pendarlab::sdk::mavlink_hub
