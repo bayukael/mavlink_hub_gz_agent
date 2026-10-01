@@ -46,6 +46,19 @@ target_link_libraries(GzAgentConfigTest
   PRIVATE GTest::gtest_main
 )
 
+add_executable(GzAgentActuatorTest
+  test/gz_agent_actuator_bridging_test.cpp
+)
+target_include_directories(GzAgentActuatorTest PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(GzAgentActuatorTest
+  PRIVATE MavlinkHubGzAgent
+  PRIVATE pendarlab::MavlinkHubSdk
+  PRIVATE gz-msgs${GZ_MSGS_VER}::gz-msgs${GZ_MSGS_VER}
+  PRIVATE GTest::gtest_main
+)
+
 add_executable(PeriodicSenderTest
   test/periodic_sender_test.cpp
 )

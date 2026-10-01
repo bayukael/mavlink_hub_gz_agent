@@ -1,5 +1,6 @@
 #include "GzAgent.h"
 
+#include "HilActuatorConverter.h"
 #include "PeriodicSender.h"
 
 #include <gz/msgs/double_v.pb.h>
@@ -9,6 +10,8 @@
 #include <gz/msgs/navsat.pb.h>
 #include <gz/msgs/pose_v.pb.h>
 #include <gz/transport/Node.hh>
+#include <mavlink/common/mavlink.h>
+#include <mavlink_endpoint/MavlinkEndpointToken.h>
 #include <mavlink_hub_sdk/mavlink_endpoint_user/IMavlinkEndpointUser.h>
 #include <mavlink_hub_sdk/manager_resource_requester/IManagerResourceRequester.h>
 
@@ -29,6 +32,8 @@ namespace pendarlab::sdk::mavlink_hub
 
     gz::transport::Node node;
     gz::transport::Node::Publisher gz_actuator_pub;
+
+    std::unique_ptr<pendarlab::lib::comm::MavlinkEndpointToken> actuator_listener;
 
     std::string vehicle_name;
 
@@ -140,11 +145,30 @@ namespace pendarlab::sdk::mavlink_hub
     // the companion conversion task (T-4). Until then the loop collects nothing.
     d->send_sender.start();
 
-    return true;
+    // The endpoint invokes the callback on its own thread, so no separate
+    // receive thread is needed. Hold the token alive for the lifetime of the
+    // bridge; releasing it in doStop() unregisters the callback.
+    //
+    // NOTE: gz Publish() copies the message but may block until the first
+    // subscriber connects or until queue space is available. Publishing here on
+    // the endpoint's callback thread could stall that thread. Acceptable for
+    // now; revisit if the endpoint stalls.
+    d->actuator_listener = d->endpoint_user->createListener(
+        [this](const pendarlab::lib::comm::MavlinkEndpointPacket& packet) {
+          gz::msgs::Double_V msg;
+          // Ignores messages with msgid != HIL_ACTUATOR_CONTROLS (no publish).
+          if (tryConvertHilActuatorControlsToDoubleV(packet.msg, msg)) {
+            d->gz_actuator_pub.Publish(msg);
+          }
+        });
+    return d->actuator_listener != nullptr;
   }
 
   bool GzAgent::doStop()
   {
+    // Releasing the token unregisters the listener, so no dangling callback
+    // or use-after-free can occur on stop/destruction.
+    d->actuator_listener.reset();
     d->send_sender.stop();
     return true;
   }
