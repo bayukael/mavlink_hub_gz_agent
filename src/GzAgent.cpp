@@ -2,6 +2,7 @@
 
 #include "HilActuatorConverter.h"
 #include "PeriodicSender.h"
+#include "GzSensorConverter.h"
 
 #include <gz/msgs/double_v.pb.h>
 #include <gz/msgs/fluid_pressure.pb.h>
@@ -28,7 +29,8 @@ namespace pendarlab::sdk::mavlink_hub
     std::unique_ptr<IManagerResourceRequester> requester;
     std::unique_ptr<IMavlinkEndpointUser> endpoint_user;
 
-    PeriodicSender send_sender;
+    PeriodicSender periodic_sender;
+    std::unique_ptr<GzSensorConverter> gz_sensor_converter;
 
     gz::transport::Node node;
     gz::transport::Node::Publisher gz_actuator_pub;
@@ -122,7 +124,9 @@ namespace pendarlab::sdk::mavlink_hub
 
     d->gz_actuator_pub = d->node.Advertise<gz::msgs::Double_V>(config.actuator_topic);
 
-    d->send_sender.setPeriod(std::chrono::microseconds(static_cast<int64_t>(1'000'000.0 / config.send_freq)));
+    d->gz_sensor_converter = std::make_unique<GzSensorConverter>(config);
+
+    d->periodic_sender.setPeriod(std::chrono::microseconds(static_cast<int64_t>(1'000'000.0 / config.send_freq)));
   }
 
   GzAgent::~GzAgent() = default;
@@ -138,12 +142,44 @@ namespace pendarlab::sdk::mavlink_hub
       }
     }
 
-    d->send_sender.setSendFn([this](const mavlink_message_t& msg) {
+    d->periodic_sender.setSendFn([this](const mavlink_message_t& msg) {
       return d->endpoint_user != nullptr && d->endpoint_user->writeMessage(msg).has_value();
     });
-    // The collect function (conversion from gz::msgs to HIL messages) is provided by
-    // the companion conversion task (T-4). Until then the loop collects nothing.
-    d->send_sender.start();
+    d->periodic_sender.setCollectFn([this]() {
+      SensorSnapshot snap;
+      {
+        std::lock_guard<std::mutex> lock(d->imu_data_mutex);
+        snap.imu = &d->imu_data;
+        snap.imu_updated = d->imu_data_updated;
+        d->imu_data_updated = false;
+      }
+      {
+        std::lock_guard<std::mutex> lock(d->baro_data_mutex);
+        snap.baro = &d->baro_data;
+        snap.baro_updated = d->baro_data_updated;
+        d->baro_data_updated = false;
+      }
+      {
+        std::lock_guard<std::mutex> lock(d->mag_data_mutex);
+        snap.mag = &d->mag_data;
+        snap.mag_updated = d->mag_data_updated;
+        d->mag_data_updated = false;
+      }
+      {
+        std::lock_guard<std::mutex> lock(d->pose_data_mutex);
+        snap.pose = &d->pose_data;
+        snap.pose_updated = d->pose_data_updated;
+        d->pose_data_updated = false;
+      }
+      {
+        std::lock_guard<std::mutex> lock(d->navsat_data_mutex);
+        snap.navsat = &d->navsat_data;
+        snap.navsat_updated = d->navsat_data_updated;
+        d->navsat_data_updated = false;
+      }
+      return d->gz_sensor_converter->convert(snap);
+    });
+    d->periodic_sender.start();
 
     // The endpoint invokes the callback on its own thread, so no separate
     // receive thread is needed. Hold the token alive for the lifetime of the
@@ -169,7 +205,7 @@ namespace pendarlab::sdk::mavlink_hub
     // Releasing the token unregisters the listener, so no dangling callback
     // or use-after-free can occur on stop/destruction.
     d->actuator_listener.reset();
-    d->send_sender.stop();
+    d->periodic_sender.stop();
     return true;
   }
 

@@ -19,6 +19,7 @@ add_library(MavlinkHubGzAgent SHARED
   src/GzAgent.cpp
   src/GzAgentDefinition.cpp
   src/PeriodicSender.cpp
+  src/GzSensorConverter.cpp
 )
 target_include_directories(MavlinkHubGzAgent PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -68,5 +69,18 @@ target_include_directories(PeriodicSenderTest PRIVATE
 target_link_libraries(PeriodicSenderTest
   PRIVATE MavlinkHubGzAgent
   PRIVATE pendarlab::MavlinkHubSdk
+  PRIVATE GTest::gtest_main
+)
+
+add_executable(GzSensorConverterTest
+  test/gz_sensor_converter_test.cpp
+)
+target_include_directories(GzSensorConverterTest PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(GzSensorConverterTest
+  PRIVATE MavlinkHubGzAgent
+  PRIVATE pendarlab::MavlinkHubSdk
+  PRIVATE gz-msgs${GZ_MSGS_VER}::gz-msgs${GZ_MSGS_VER}
   PRIVATE GTest::gtest_main
 )
