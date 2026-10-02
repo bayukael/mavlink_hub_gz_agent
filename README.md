@@ -57,26 +57,28 @@ When the autopilot sends a `HIL_ACTUATOR_CONTROLS` (id 93) message, the agent de
 ### Prerequisites
 
 - CMake (>= 3.13) and a C++17 compiler.
-- The `mavlink_hub_sdk` installed and discoverable by CMake. As long as it is installed and its prefix is on `CMAKE_PREFIX_PATH`, its transitive dependencies are resolved automatically — no additional setup is needed.
+- The `mavlink_hub_sdk` and its transitive dependencies installed and discoverable by CMake. **The SDK does not automatically deal with its own dependencies** (as of v1.0.0), so you must set `CMAKE_PREFIX_PATH` so `find_package` can locate the SDK's transitive dependencies. See "Configure and build" below.
 - The Gazebo packages (system install, found via `find_package`):
   - `gz-cmake3`, `gz-msgs10`, `gz-transport13`, `sdformat14`.
 
 ### Configure and build
 
+The SDK's CMake config pulls in its transitive dependencies (e.g. `find_dependency(PendarlabMavlinkEndpoint 1.0.0)` and their own transitive deps), but it cannot resolve those on its own. You must set `CMAKE_PREFIX_PATH` to the install prefix(es) of the SDK and all its transitive dependencies (e.g. `mavlink_endpoint`, ...). Set the prefix to whatever directory CMake needs to find each of those packages — the dependencies are not required to share a common prefix.
+
 From the project root (the directory containing this `README.md`):
 
 ```bash
-cmake -S . -B build -DCMAKE_PREFIX_PATH="<prefix containing your mavlink_hub_sdk install>"
+cmake -S . -B build -DCMAKE_PREFIX_PATH="<prefix(es) of the SDK and its dependencies>"
 cmake --build build
 ```
 
-Set `<prefix containing your mavlink_hub_sdk install>` to the install prefix where `mavlink_hub_sdk` was installed (for example, the directory that contains the SDK's CMake config files). As long as `mavlink_hub_sdk` is found, everything else is pulled in automatically.
+Set `<prefix(es) of the SDK and its dependencies>` to the install prefix (or prefixes, semicolon-separated) of `mavlink_hub_sdk` and all its transitive dependencies — whatever directories CMake needs to find each of those packages. There is no requirement that they be in one place. With these prefixes on `CMAKE_PREFIX_PATH`, `find_package(PendarlabMavlinkHubSdk 1.0.0)` finds the SDK *and* its transitive dependencies.
 
 Alternatively, from inside a `build/` directory you created yourself:
 
 ```bash
 cd build
-cmake .. -DCMAKE_PREFIX_PATH="<prefix containing your mavlink_hub_sdk install>"
+cmake .. -DCMAKE_PREFIX_PATH="<prefix(es) of the SDK and its dependencies>"
 make
 ```
 
