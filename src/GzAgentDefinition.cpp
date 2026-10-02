@@ -10,12 +10,17 @@
 
 namespace pendarlab::sdk::mavlink_hub
 {
+  /** Parses the raw config map into a GzAgentConfig, validating required fields and the
+      optional send_freq / magnetometer unit / frame values. @param cfg the raw key/value
+      config entries. @return a parse result with the parsed config on success, or populated
+      error messages otherwise. */
   AgentConfigParseResult GzAgentDefinition::parseConfig(const std::unordered_map<std::string, std::string>& cfg) const
   {
     AgentConfigParseResult result;
     auto config = std::make_unique<GzAgentConfig>();
     bool hasError = false;
 
+    /// Returns the value of a required key, recording an error and returning "" if missing.
     auto getRequired = [&cfg, &result, &hasError](const std::string& key) -> std::string {
       auto it = cfg.find(key);
       if (it == cfg.end()) {
@@ -73,6 +78,8 @@ namespace pendarlab::sdk::mavlink_hub
       config->generateTopics();
     }
 
+    /// Returns a topic: the user-supplied value if present, otherwise the generated default,
+    /// recording an error if the topic is required but absent.
     auto getTopic = [&cfg, &result, &hasError](const std::string& key, const std::string& generated, bool required) -> std::string {
       auto it = cfg.find(key);
       if (it != cfg.end()) {
@@ -101,6 +108,9 @@ namespace pendarlab::sdk::mavlink_hub
     return result;
   }
 
+  /// Creates a GzAgent from a parsed config. @param cfg the parsed config (must be a
+  /// GzAgentConfig). @param requester handed to the agent. @return the new agent, or
+  /// nullptr if cfg is not a GzAgentConfig.
   std::unique_ptr<Agent> GzAgentDefinition::create(const AgentConfig& cfg, std::unique_ptr<IManagerResourceRequester> requester) const
   {
     const auto* gz_config = dynamic_cast<const GzAgentConfig*>(&cfg);
@@ -110,6 +120,8 @@ namespace pendarlab::sdk::mavlink_hub
     return std::make_unique<GzAgent>(*gz_config, std::move(requester));
   }
 
+  /// extern "C" factory entry point, dlsym'ed by mavlink_hub's LibLoader. @return a pointer
+  /// to the singleton GzAgentDefinition.
   extern "C" const GzAgentDefinition* getGzAgentDefinition()
   {
     static GzAgentDefinition gz_agent_def;

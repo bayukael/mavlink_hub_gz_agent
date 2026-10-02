@@ -64,6 +64,7 @@ namespace pendarlab::sdk::mavlink_hub
     bool navsat_data_updated = false;
     std::chrono::steady_clock::time_point last_navsat_timestamp;
 
+    /// Stores the latest IMU sample under the imu mutex and marks it updated.
     void imu_callback(const gz::msgs::IMU& _msg)
     {
       std::lock_guard<std::mutex> lock(imu_data_mutex);
@@ -72,6 +73,7 @@ namespace pendarlab::sdk::mavlink_hub
       last_imu_timestamp = std::chrono::steady_clock::now();
     }
 
+    /// Stores the latest barometer sample under the baro mutex and marks it updated.
     void baro_callback(const gz::msgs::FluidPressure& _msg)
     {
       std::lock_guard<std::mutex> lock(baro_data_mutex);
@@ -80,6 +82,7 @@ namespace pendarlab::sdk::mavlink_hub
       last_baro_timestamp = std::chrono::steady_clock::now();
     }
 
+    /// Stores the latest magnetometer sample under the mag mutex and marks it updated.
     void mag_callback(const gz::msgs::Magnetometer& _msg)
     {
       std::lock_guard<std::mutex> lock(mag_data_mutex);
@@ -88,6 +91,7 @@ namespace pendarlab::sdk::mavlink_hub
       last_mag_timestamp = std::chrono::steady_clock::now();
     }
 
+    /// Stores the pose of this vehicle (matched by name) from a Pose_V under the pose mutex.
     void pose_callback(const gz::msgs::Pose_V& _msg)
     {
       std::lock_guard<std::mutex> lock(pose_data_mutex);
@@ -100,6 +104,7 @@ namespace pendarlab::sdk::mavlink_hub
       }
     }
 
+    /// Stores the latest NavSat/GPS sample under the navsat mutex and marks it updated.
     void navsat_callback(const gz::msgs::NavSat& _msg)
     {
       std::lock_guard<std::mutex> lock(navsat_data_mutex);
@@ -109,6 +114,8 @@ namespace pendarlab::sdk::mavlink_hub
     }
   };
 
+  /// Stores the config/requester, subscribes to the Gazebo sensor topics, advertises the
+  /// actuator topic, and configures the periodic send-loop period.
   GzAgent::GzAgent(const GzAgentConfig& config, std::unique_ptr<IManagerResourceRequester> requester)
       : d(std::make_unique<GzAgentImpl>())
   {
@@ -133,6 +140,8 @@ namespace pendarlab::sdk::mavlink_hub
   GzAgent::GzAgent(GzAgent&&) noexcept = default;
   GzAgent& GzAgent::operator=(GzAgent&&) noexcept = default;
 
+  /// Requests the Mavlink endpoint, wires and starts the sensor send-loop, and registers
+  /// the HIL_ACTUATOR_CONTROLS listener. @return false if the endpoint is unavailable.
   bool GzAgent::doStart()
   {
     if (d->endpoint_user == nullptr) {
@@ -200,6 +209,8 @@ namespace pendarlab::sdk::mavlink_hub
     return d->actuator_listener != nullptr;
   }
 
+  /// Stops the send-loop and releases the actuator listener token, unregistering the callback.
+  /// @return true.
   bool GzAgent::doStop()
   {
     // Releasing the token unregisters the listener, so no dangling callback
@@ -209,6 +220,7 @@ namespace pendarlab::sdk::mavlink_hub
     return true;
   }
 
+  /// No-op configuration hook; the config is fixed at construction. @return true.
   bool GzAgent::doConfigure(const AgentConfig& config)
   {
     return true;

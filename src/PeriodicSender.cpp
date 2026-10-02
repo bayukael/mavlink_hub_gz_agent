@@ -13,6 +13,7 @@ namespace pendarlab::sdk::mavlink_hub
     SendFn send_fn;
     std::chrono::microseconds period{std::chrono::microseconds(4000)}; // 250 Hz default
 
+    /// The background loop: until stopped, collect and send all messages each period.
     void routine()
     {
       while (!stop.load()) {
@@ -29,8 +30,10 @@ namespace pendarlab::sdk::mavlink_hub
     }
   };
 
+  /// Constructs an idle (not running) sender.
   PeriodicSender::PeriodicSender() : d(std::make_unique<Impl>()) {}
 
+  /// Stops the background loop if running, then destroys the sender.
   PeriodicSender::~PeriodicSender()
   {
     stop();
@@ -39,26 +42,31 @@ namespace pendarlab::sdk::mavlink_hub
   PeriodicSender::PeriodicSender(PeriodicSender&&) noexcept = default;
   PeriodicSender& PeriodicSender::operator=(PeriodicSender&&) noexcept = default;
 
+  /// Stores the collect callback. @param fn callback producing messages for each tick.
   void PeriodicSender::setCollectFn(CollectFn fn)
   {
     d->collect_fn = std::move(fn);
   }
 
+  /// Stores the send callback. @param fn callback dispatching a single message.
   void PeriodicSender::setSendFn(SendFn fn)
   {
     d->send_fn = std::move(fn);
   }
 
+  /// Sets the loop period. @param period time between ticks.
   void PeriodicSender::setPeriod(std::chrono::microseconds period)
   {
     d->period = period;
   }
 
+  /// @return the current loop period.
   std::chrono::microseconds PeriodicSender::period() const
   {
     return d->period;
   }
 
+  /// Starts the background loop. @return true once running.
   bool PeriodicSender::start()
   {
     if (isRunning()) {
@@ -69,6 +77,7 @@ namespace pendarlab::sdk::mavlink_hub
     return true;
   }
 
+  /// Stops the background loop, joining the thread.
   void PeriodicSender::stop()
   {
     if (!isRunning()) {
@@ -80,6 +89,7 @@ namespace pendarlab::sdk::mavlink_hub
     }
   }
 
+  /// @return true if the background loop is currently running.
   bool PeriodicSender::isRunning() const
   {
     return d->thread.joinable() && !d->stop.load();

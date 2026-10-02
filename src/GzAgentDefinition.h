@@ -9,10 +9,16 @@
 
 namespace pendarlab::sdk::mavlink_hub
 {
+  /** Factory for GzAgent. Parses the plugin config and creates GzAgent instances. */
   class GzAgentDefinition : public AgentDefinition
   {
   public:
+    /** Parses the string-keyed config map into a GzAgentConfig. @param cfg raw config entries.
+        @return a parse result carrying the parsed config on success, or an error otherwise. */
     virtual AgentConfigParseResult parseConfig(const std::unordered_map<std::string, std::string>& cfg) const override;
+    /** Creates a GzAgent from a parsed config. @param cfg the parsed config (must be a GzAgentConfig).
+        @param requester handed to the agent for endpoint acquisition. @return the new agent, or
+        nullptr if cfg is not a GzAgentConfig. */
     virtual std::unique_ptr<Agent> create(const AgentConfig& cfg, std::unique_ptr<IManagerResourceRequester> requester) const override;
   };
 } // namespace pendarlab::sdk::mavlink_hub

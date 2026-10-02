@@ -30,6 +30,8 @@ namespace pendarlab::sdk::mavlink_hub
 
     constexpr double kPi = 3.14159265358979323846;
 
+    /// Converts a gz::msgs Header timestamp to microseconds since epoch. @param header the
+    /// message header. @return the stamp in microseconds.
     std::uint64_t stampToUsec(const gz::msgs::Header& header)
     {
       const auto& stamp = header.stamp();
@@ -44,6 +46,8 @@ namespace pendarlab::sdk::mavlink_hub
     std::string mag_frame = "ned";
   };
 
+  /// Constructs the converter, storing the magnetometer unit/frame from the config.
+  /// @param cfg the agent config.
   GzSensorConverter::GzSensorConverter(const GzAgentConfig& cfg)
       : d(std::make_unique<Impl>())
   {
@@ -51,8 +55,12 @@ namespace pendarlab::sdk::mavlink_hub
     d->mag_frame = cfg.gz_magnetometer_frame;
   }
 
+  /// Destroys the converter.
   GzSensorConverter::~GzSensorConverter() = default;
 
+  /// Converts a snapshot into sendable HIL_SENSOR / HIL_GPS messages. Emits HIL_SENSOR
+  /// only if imu/baro/mag updated, HIL_GPS only if navsat updated. @param snap the latest
+  /// sensor data and update flags. @return the messages to send (empty if nothing new).
   std::vector<mavlink_message_t> GzSensorConverter::convert(const SensorSnapshot& snap)
   {
     std::vector<mavlink_message_t> result;
