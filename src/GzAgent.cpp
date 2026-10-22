@@ -21,7 +21,7 @@
 #include <mutex>
 #include <string>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
   struct GzAgent::GzAgentImpl {
     GzAgentConfig config;
@@ -225,4 +225,4 @@ namespace pendarlab::sdk::mavlink_hub
   {
     return true;
   }
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

@@ -4,8 +4,10 @@
 
 #include <string>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
+  using pendarlab::sdk::mavlink_hub::AgentConfig;
+
   /** Configuration for the Gazebo bridge agent. Subclasses AgentConfig to add the
       fields needed to connect a Mavlink endpoint to a Gazebo simulation. */
   class GzAgentConfig : public AgentConfig
@@ -49,4 +51,4 @@ namespace pendarlab::sdk::mavlink_hub
       actuator_topic = "/" + vehicle_name + "/command/raw_actuators";
     }
   };
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

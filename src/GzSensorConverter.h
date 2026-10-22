@@ -12,7 +12,7 @@
 #include <memory>
 #include <vector>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
   /** A snapshot of the latest sensor data plus a flag per sensor indicating whether it
       has been updated since the last conversion. The gz::msgs pointers may be null;
@@ -66,4 +66,4 @@ namespace pendarlab::sdk::mavlink_hub
     struct Impl;
     std::unique_ptr<Impl> d;
   };
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

@@ -3,7 +3,7 @@
 #include <atomic>
 #include <thread>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
   struct PeriodicSender::Impl
   {
@@ -94,4 +94,4 @@ namespace pendarlab::sdk::mavlink_hub
   {
     return d->thread.joinable() && !d->stop.load();
   }
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

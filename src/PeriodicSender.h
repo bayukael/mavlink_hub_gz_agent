@@ -7,7 +7,7 @@
 #include <memory>
 #include <vector>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
   /** A background thread that periodically collects sendable messages and dispatches
       them through a send function. The class is conversion-agnostic: it only invokes
@@ -53,4 +53,4 @@ namespace pendarlab::sdk::mavlink_hub
     struct Impl;
     std::unique_ptr<Impl> d;
   };
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

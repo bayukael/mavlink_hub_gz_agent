@@ -8,7 +8,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
   /** Parses the raw config map into a GzAgentConfig, validating required fields and the
       optional send_freq / magnetometer unit / frame values. @param cfg the raw key/value
@@ -127,4 +127,4 @@ namespace pendarlab::sdk::mavlink_hub
     static GzAgentDefinition gz_agent_def;
     return &gz_agent_def;
   }
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

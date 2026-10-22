@@ -7,8 +7,14 @@
 #include <string>
 #include <unordered_map>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
+  using pendarlab::sdk::mavlink_hub::Agent;
+  using pendarlab::sdk::mavlink_hub::AgentConfig;
+  using pendarlab::sdk::mavlink_hub::AgentDefinition;
+  using pendarlab::sdk::mavlink_hub::AgentConfigParseResult;
+  using pendarlab::sdk::mavlink_hub::IManagerResourceRequester;
+
   /** Factory for GzAgent. Parses the plugin config and creates GzAgent instances. */
   class GzAgentDefinition : public AgentDefinition
   {
@@ -21,4 +27,4 @@ namespace pendarlab::sdk::mavlink_hub
         nullptr if cfg is not a GzAgentConfig. */
     virtual std::unique_ptr<Agent> create(const AgentConfig& cfg, std::unique_ptr<IManagerResourceRequester> requester) const override;
   };
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

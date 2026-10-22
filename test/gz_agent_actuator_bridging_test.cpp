@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
   namespace
   {
@@ -60,4 +60,4 @@ namespace pendarlab::sdk::mavlink_hub
     ASSERT_EQ(out.data_size(), 1);
     EXPECT_EQ(out.data(0), 123.0);
   }
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

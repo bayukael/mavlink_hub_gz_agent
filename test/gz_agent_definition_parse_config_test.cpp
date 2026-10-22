@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
   namespace
   {
@@ -157,4 +157,4 @@ namespace pendarlab::sdk::mavlink_hub
     EXPECT_FALSE(result.ok());
     EXPECT_EQ(result.parsed, nullptr);
   }
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

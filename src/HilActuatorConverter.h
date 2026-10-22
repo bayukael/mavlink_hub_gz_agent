@@ -3,7 +3,7 @@
 #include <gz/msgs/double_v.pb.h>
 #include <mavlink/common/mavlink.h>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
   // Number of actuator control channels in HIL_ACTUATOR_CONTROLS.
   constexpr int kHilActuatorControlCount = 16;
@@ -28,4 +28,4 @@ namespace pendarlab::sdk::mavlink_hub
     }
     return true;
   }
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

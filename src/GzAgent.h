@@ -8,8 +8,13 @@
 
 #include <memory>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
+  using pendarlab::sdk::mavlink_hub::Agent;
+  using pendarlab::sdk::mavlink_hub::AgentConfig;
+  using pendarlab::sdk::mavlink_hub::IManagerResourceRequester;
+  using pendarlab::sdk::mavlink_hub::IMavlinkEndpointUser;
+
   /** The Mavlink <-> Gazebo bridge agent. Subscribes to Gazebo sensor topics and publishes
       actuator commands, bridging between a Mavlink endpoint and the simulation. */
   class GzAgent : public Agent
@@ -38,4 +43,4 @@ namespace pendarlab::sdk::mavlink_hub
     struct GzAgentImpl;
     std::unique_ptr<GzAgentImpl> d;
   };
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

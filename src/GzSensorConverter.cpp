@@ -7,7 +7,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
   namespace
   {
@@ -172,4 +172,4 @@ namespace pendarlab::sdk::mavlink_hub
 
     return result;
   }
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin

@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace pendarlab::sdk::mavlink_hub
+namespace pendarlab::app::mavlink_hub::plugin
 {
   namespace
   {
@@ -371,4 +371,4 @@ namespace pendarlab::sdk::mavlink_hub
     EXPECT_FLOAT_EQ(sensor.diff_pressure, 0.0f);
     EXPECT_NE(sensor.fields_updated & kDiffPress, 0u);
   }
-} // namespace pendarlab::sdk::mavlink_hub
+} // namespace pendarlab::app::mavlink_hub::plugin
