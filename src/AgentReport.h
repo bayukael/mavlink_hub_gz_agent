@@ -7,12 +7,13 @@
 
 namespace pendarlab::sdk::mavlink_hub
 {
-  /** Aggregates the frequency content of the agent report: the receive rate of every
-      Gazebo topic the agent subscribes to (imu, baro, mag, pose, navsat), the send rate
-      of the Gazebo topic it publishes (actuator), the receive rate of the
-      HIL_ACTUATOR_CONTROLS MAVLink messages, and the send rate of the HIL_SENSOR MAVLink
-      messages. build() renders the content as a single line, with gazebo-related data
-      grouped together and kept separate from mavlink-related data.
+  /** Aggregates the frequency content of the agent report: the send rate of the Gazebo
+      topic the agent publishes (tx_gz), the receive rate of every Gazebo topic it
+      subscribes to (rx_gz), the send rate of the HIL_SENSOR MAVLink messages (tx_mav), and
+      the receive rate of the HIL_ACTUATOR_CONTROLS MAVLink messages (rx_mav). build()
+      renders the content as a single line of integer numbers separated only by separators,
+      in the four-group order tx_gz|rx_gz|tx_mav|rx_mav. The meaning of each position is
+      documented in README.md, not encoded as inline labels.
 
       Thread-safe: the note*() methods are called from Gazebo/MAVLink callback threads and
       build() from the report-requesting thread. */
@@ -49,15 +50,14 @@ namespace pendarlab::sdk::mavlink_hub
     /// Records one HIL_SENSOR MAVLink message sent to the endpoint.
     void noteHilSensorSend();
 
-    /** Renders the report as a single line: the gazebo data points first, then the
-        mavlink data points, '/' separating data points within a group and '|' separating
-        the two groups. Every data point is <label>:<rx|tx>=<rate>Hz with one decimal.
-        Reading the report resets the measured windows, so a later build() reports the
-        interval since this one. @return the single-line report string. */
+    /** Renders the report as a single line of integer rates (Hz) separated by '/' within a
+        group and by '|' between groups, in the order tx_gz|rx_gz|tx_mav|rx_mav. Rates are
+        rounded to the nearest integer. A stream with no measurable traffic reads 0.
+        @return the single-line report string. */
     std::string build();
 
   private:
-    struct Impl;
-    std::unique_ptr<Impl> d;
+    struct AgentReportImpl;
+    std::unique_ptr<AgentReportImpl> d;
   };
 } // namespace pendarlab::sdk::mavlink_hub

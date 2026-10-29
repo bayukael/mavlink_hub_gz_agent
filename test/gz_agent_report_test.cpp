@@ -46,46 +46,38 @@ TEST(GzAgentReport, OverridesTheSdkDefaultReport)
   EXPECT_NE(agent.report(), "agent does not implement a report");
 }
 
-TEST(GzAgentReport, ReportIsASingleLine)
+TEST(GzAgentReport, ReportIsASingleLineWithoutLabels)
 {
   GzAgent agent(makeConfig(), std::make_unique<NullResourceRequester>());
   const std::string text = agent.report();
   EXPECT_EQ(text.find('\n'), std::string::npos);
   EXPECT_EQ(text.find('\r'), std::string::npos);
   EXPECT_FALSE(text.empty());
+  // The report carries only digits and separators — no inline labels or unit text.
+  for (char c : text) {
+    EXPECT_TRUE(c == '0' || c == '/' || c == '|');
+  }
 }
 
-TEST(GzAgentReport, GroupsGazeboSeparatelyFromMavlink)
+TEST(GzAgentReport, GroupsAreInTheTxGzRxGzTxMavRxMavOrder)
 {
   GzAgent agent(makeConfig(), std::make_unique<NullResourceRequester>());
   const std::string text = agent.report();
-  const auto gz_begin = text.find("gz:");
-  const auto group_separator = text.find('|');
-  const auto mav_begin = text.find("mav:");
-  ASSERT_NE(gz_begin, std::string::npos);
-  ASSERT_NE(group_separator, std::string::npos);
-  ASSERT_NE(mav_begin, std::string::npos);
-  EXPECT_LT(gz_begin, group_separator);
-  EXPECT_LT(group_separator, mav_begin);
-}
-
-TEST(GzAgentReport, CarriesEveryGazeboAndMavlinkStream)
-{
-  GzAgent agent(makeConfig(), std::make_unique<NullResourceRequester>());
-  const std::string text = agent.report();
-  for (const char* label : {"imu", "baro", "mag", "pose", "navsat", "actuator"}) {
-    EXPECT_NE(text.find(std::string(label) + ":"), std::string::npos) << label;
-  }
-  for (const char* label : {"HIL_ACTUATOR_CONTROLS", "HIL_SENSOR"}) {
-    EXPECT_NE(text.find(label), std::string::npos) << label;
-  }
+  // Four groups separated by '|' in the order tx_gz | rx_gz | tx_mav | rx_mav; the rx_gz
+  // group bundles five values separated by '/'. Positions follow the README layout.
+  ASSERT_EQ(text.size(), size_t(15));
+  EXPECT_EQ(text, "0"          // tx_gz (actuator send rate)
+                  "|"          // group separator
+                  "0/0/0/0/0"  // rx_gz (imu, baro, mag, pose, navsat receive rates)
+                  "|"          // group separator
+                  "0"          // tx_mav (HIL_SENSOR send rate)
+                  "|"          // group separator
+                  "0");        // rx_mav (HIL_ACTUATOR_CONTROLS receive rate)
 }
 
 TEST(GzAgentReport, ReportsZeroRateBeforeAnyTraffic)
 {
   GzAgent agent(makeConfig(), std::make_unique<NullResourceRequester>());
-  // No Gazebo or MAVLink traffic has flowed, so every stream reads zero.
-  EXPECT_EQ(agent.report(),
-            "gz:imu:rx=0.0Hz/baro:rx=0.0Hz/mag:rx=0.0Hz/pose:rx=0.0Hz/navsat:rx=0.0Hz/"
-            "actuator:tx=0.0Hz|mav:HIL_ACTUATOR_CONTROLS:rx=0.0Hz/HIL_SENSOR:tx=0.0Hz");
+  // No Gazebo or MAVLink traffic has flowed, so every group reads zero.
+  EXPECT_EQ(agent.report(), "0|0/0/0/0/0|0|0");
 }

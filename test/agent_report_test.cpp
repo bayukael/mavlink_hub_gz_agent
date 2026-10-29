@@ -21,97 +21,89 @@ namespace
     std::chrono::steady_clock::time_point now_ = std::chrono::steady_clock::now();
   };
 
-  /// Labels of every stream the report must carry, in report order within their groups.
-  const char* const kGzLabels[] = {"imu", "baro", "mag", "pose", "navsat", "actuator"};
-  const char* const kMavLabels[] = {"HIL_ACTUATOR_CONTROLS", "HIL_SENSOR"};
+  /// Records one event on the given report stream, then advances the clock. Used to build
+  /// a deterministic set of rates whose values are easy to predict.
+  void noteAndAdvance(std::function<void()> note, FakeClock& clock,
+                      std::chrono::steady_clock::duration step)
+  {
+    note();
+    clock.advance(step);
+  }
 } // namespace
 
-TEST(AgentReport, EmptyReportCarriesEveryStreamAtZeroRate)
+TEST(AgentReport, EmptyReportRendersAZeroPerGroup)
 {
   AgentReport report;
-  EXPECT_EQ(report.build(),
-            "gz:imu:rx=0.0Hz/baro:rx=0.0Hz/mag:rx=0.0Hz/pose:rx=0.0Hz/navsat:rx=0.0Hz/"
-            "actuator:tx=0.0Hz|mav:HIL_ACTUATOR_CONTROLS:rx=0.0Hz/HIL_SENSOR:tx=0.0Hz");
+  EXPECT_EQ(report.build(), "0|0/0/0/0/0|0|0");
 }
 
-TEST(AgentReport, ReportIsASingleLine)
+TEST(AgentReport, ReportIsASingleLineWithoutLabels)
 {
   AgentReport report;
   const std::string text = report.build();
   EXPECT_EQ(text.find('\n'), std::string::npos);
   EXPECT_EQ(text.find('\r'), std::string::npos);
-  EXPECT_FALSE(text.empty());
-}
-
-TEST(AgentReport, GazeboGroupIsSeparateFromMavlinkGroup)
-{
-  AgentReport report;
-  const std::string text = report.build();
-  // The gazebo group opens the line, the mavlink group follows it, and the '|' separates
-  // the two groups; gazebo data is never mixed with mavlink data.
-  const auto gz_begin = text.find("gz:");
-  const auto group_separator = text.find('|');
-  const auto mav_begin = text.find("mav:");
-  ASSERT_NE(gz_begin, std::string::npos);
-  ASSERT_NE(group_separator, std::string::npos);
-  ASSERT_NE(mav_begin, std::string::npos);
-  EXPECT_LT(gz_begin, group_separator);
-  EXPECT_LT(group_separator, mav_begin);
-}
-
-TEST(AgentReport, CarriesEveryGazeboAndMavlinkStream)
-{
-  AgentReport report;
-  const std::string text = report.build();
-  for (const char* label : kGzLabels) {
-    EXPECT_NE(text.find(std::string(label) + ":"), std::string::npos) << label;
-  }
-  for (const char* label : kMavLabels) {
-    EXPECT_NE(text.find(label), std::string::npos) << label;
+  // The report carries only digits and separators — no letters (no inline labels).
+  for (char c : text) {
+    EXPECT_TRUE(c == '0' || c == '/' || c == '|');
   }
 }
 
-TEST(AgentReport, ReportsMeasuredRatesPerStream)
+TEST(AgentReport, RendersInTheTxGzRxGzTxMavRxMavGroupOrder)
+{
+  AgentReport report;
+  const std::string text = report.build();
+  // Groups are separated by '|' in the order tx_gz | rx_gz | tx_mav | rx_mav; the rx_gz
+  // group bundles five values separated by '/'.
+  ASSERT_EQ(text.size(), size_t(15));
+  EXPECT_EQ(text, "0"          // tx_gz (actuator)
+                  "|"          // group separator
+                  "0/0/0/0/0"  // rx_gz (imu, baro, mag, pose, navsat)
+                  "|"          // group separator
+                  "0"          // tx_mav (HIL_SENSOR)
+                  "|"          // group separator
+                  "0");        // rx_mav (HIL_ACTUATOR_CONTROLS)
+}
+
+TEST(AgentReport, ReportsRoundedIntegerRatesPerStream)
 {
   FakeClock clock;
   AgentReport report([&clock]() { return clock.now(); });
 
-  for (int i = 0; i < 10; i++) {
-    report.noteImu();
-  }
-  report.noteNavsat();
+  // Actuator (tx_gz): 5 events 0.125 s apart -> the 5-ts window spans 0.5 s -> 10 Hz.
   for (int i = 0; i < 5; i++) {
-    report.noteActuatorPublish();
+    noteAndAdvance([&]() { report.noteActuatorPublish(); }, clock, std::chrono::milliseconds(125));
   }
-  for (int i = 0; i < 2; i++) {
-    report.noteHilActuatorControlsReceive();
+  // IMU (rx_gz 1): 5 events 0.25 s apart -> the window spans 1 s -> 5 Hz.
+  for (int i = 0; i < 5; i++) {
+    noteAndAdvance([&]() { report.noteImu(); }, clock, std::chrono::milliseconds(250));
   }
-  for (int i = 0; i < 7; i++) {
-    report.noteHilSensorSend();
+  // Baro (rx_gz 2): 5 events 0.25 s apart -> 5 Hz.
+  for (int i = 0; i < 5; i++) {
+    noteAndAdvance([&]() { report.noteBaro(); }, clock, std::chrono::milliseconds(250));
   }
-  clock.advance(std::chrono::seconds(1));
+  // Mag, pose, navsat (rx_gz 3-5): no events -> 0 Hz.
+  // HIL_SENSOR (tx_mav): 5 events 0.125 s apart -> 10 Hz.
+  for (int i = 0; i < 5; i++) {
+    noteAndAdvance([&]() { report.noteHilSensorSend(); }, clock, std::chrono::milliseconds(125));
+  }
+  // HIL_ACTUATOR_CONTROLS (rx_mav): 5 events 1 s apart -> the window spans 4 s ->
+  // 5/4 = 1.25 Hz, rounded to 1.
+  for (int i = 0; i < 5; i++) {
+    noteAndAdvance([&]() { report.noteHilActuatorControlsReceive(); }, clock, std::chrono::seconds(1));
+  }
 
-  EXPECT_EQ(report.build(),
-            "gz:imu:rx=10.0Hz/baro:rx=0.0Hz/mag:rx=0.0Hz/pose:rx=0.0Hz/navsat:rx=1.0Hz/"
-            "actuator:tx=5.0Hz|mav:HIL_ACTUATOR_CONTROLS:rx=2.0Hz/HIL_SENSOR:tx=7.0Hz");
+  EXPECT_EQ(report.build(), "10|5/5/0/0/0|10|1");
 }
 
-TEST(AgentReport, FormatsFractionalRatesWithOneDecimal)
+TEST(AgentReport, RoundsFractionsToTheNearestHz)
 {
   FakeClock clock;
   AgentReport report([&clock]() { return clock.now(); });
-  report.noteBaro();
-  clock.advance(std::chrono::milliseconds(300)); // 1 event over 0.3 s = 3.33 Hz
-  EXPECT_NE(report.build().find("baro:rx=3.3Hz"), std::string::npos);
-}
-
-TEST(AgentReport, BuildResetsTheWindows)
-{
-  FakeClock clock;
-  AgentReport report([&clock]() { return clock.now(); });
-  report.noteMag();
-  clock.advance(std::chrono::seconds(1));
-  EXPECT_NE(report.build().find("mag:rx=1.0Hz"), std::string::npos);
-  // No events since the previous build: the fresh windows are empty.
-  EXPECT_NE(report.build().find("mag:rx=0.0Hz"), std::string::npos);
+  // NavSat (rx_gz 5): 5 events 0.3 s apart -> the 5-ts window spans 1.2 s -> 5/1.2 ≈ 4.17
+  // Hz, rounded to 4.
+  for (int i = 0; i < 5; i++) {
+    noteAndAdvance([&]() { report.noteNavsat(); }, clock, std::chrono::milliseconds(300));
+  }
+  EXPECT_EQ(report.build(), "0|0/0/0/0/4|0|0");
 }

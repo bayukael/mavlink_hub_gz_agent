@@ -1,47 +1,52 @@
 #include "AgentReport.h"
 
-#include <cstdio>
+#include <cmath>
+#include <cstdint>
+#include <string>
 #include <utility>
 
 namespace pendarlab::sdk::mavlink_hub
 {
   namespace
   {
-    /// Formats one report data point. @param label the stream label. @param direction
-    /// "rx" for received / "tx" for sent. @param hz the measured rate.
-    /// @return "<label>:<direction>=<rate>Hz" with one decimal.
-    std::string dataPoint(const char* label, const char* direction, double hz)
+    /// Rounds a Hz rate to the nearest integer. @param hz the measured rate. @return the
+    /// nearest whole number of Hz.
+    std::int64_t roundHz(double hz)
     {
-      char rate[32];
-      std::snprintf(rate, sizeof(rate), "%.1f", hz);
-      return std::string(label) + ":" + direction + "=" + rate + "Hz";
+      return static_cast<std::int64_t>(std::llround(hz));
+    }
+
+    /// Renders one stream's rate as its integer Hz value. @param hz the measured rate.
+    /// @return the integer Hz string.
+    std::string rateString(double hz)
+    {
+      return std::to_string(roundHz(hz));
     }
   } // namespace
 
-  struct AgentReport::Impl
+  struct AgentReport::AgentReportImpl
   {
-    /// The streams are laid out in report order: the gazebo receive topics, the gazebo
-    /// send topic, then the mavlink receive and send streams. build() renders the gazebo
-    /// group and the mavlink group separately, in this order.
-    explicit Impl(FrequencyCounter::Clock clock)
+    /// One counter per reported stream. build() groups them as tx_gz | rx_gz | tx_mav |
+    /// rx_mav; within rx_gz the order is imu, baro, mag, pose, navsat.
+    explicit AgentReportImpl(FrequencyCounter::Clock clock)
         : imu(clock), baro(clock), mag(clock), pose(clock), navsat(clock),
           actuator(clock), hil_actuator_controls(clock), hil_sensor(clock)
     {
     }
 
-    FrequencyCounter imu;
-    FrequencyCounter baro;
-    FrequencyCounter mag;
-    FrequencyCounter pose;
-    FrequencyCounter navsat;
-    FrequencyCounter actuator;
-    FrequencyCounter hil_actuator_controls;
-    FrequencyCounter hil_sensor;
+    FrequencyCounter actuator;            // tx_gz: send rate of the published actuator topic
+    FrequencyCounter imu;                 // rx_gz
+    FrequencyCounter baro;                // rx_gz
+    FrequencyCounter mag;                 // rx_gz
+    FrequencyCounter pose;                // rx_gz
+    FrequencyCounter navsat;              // rx_gz
+    FrequencyCounter hil_sensor;          // tx_mav: send rate of HIL_SENSOR
+    FrequencyCounter hil_actuator_controls; // rx_mav: receive rate of HIL_ACTUATOR_CONTROLS
   };
 
   /// Constructs an empty report over the given time source. @param clock the time source.
   AgentReport::AgentReport(FrequencyCounter::Clock clock)
-      : d(std::make_unique<Impl>(std::move(clock)))
+      : d(std::make_unique<AgentReportImpl>(std::move(clock)))
   {
   }
 
@@ -60,19 +65,18 @@ namespace pendarlab::sdk::mavlink_hub
   void AgentReport::noteHilActuatorControlsReceive() { d->hil_actuator_controls.note(); }
   void AgentReport::noteHilSensorSend() { d->hil_sensor.note(); }
 
-  /// Renders the single-line report: gazebo data points first, then mavlink data points.
+  /// Renders the single-line report: tx_gz | rx_gz | tx_mav | rx_mav, integer Hz values.
   std::string AgentReport::build()
   {
-    const std::string gazebo =
-        dataPoint("imu", "rx", d->imu.frequency()) + "/" +
-        dataPoint("baro", "rx", d->baro.frequency()) + "/" +
-        dataPoint("mag", "rx", d->mag.frequency()) + "/" +
-        dataPoint("pose", "rx", d->pose.frequency()) + "/" +
-        dataPoint("navsat", "rx", d->navsat.frequency()) + "/" +
-        dataPoint("actuator", "tx", d->actuator.frequency());
-    const std::string mavlink =
-        dataPoint("HIL_ACTUATOR_CONTROLS", "rx", d->hil_actuator_controls.frequency()) + "/" +
-        dataPoint("HIL_SENSOR", "tx", d->hil_sensor.frequency());
-    return "gz:" + gazebo + "|mav:" + mavlink;
+    const std::string tx_gz = rateString(d->actuator.frequency());
+    const std::string rx_gz =
+        rateString(d->imu.frequency()) + "/" +
+        rateString(d->baro.frequency()) + "/" +
+        rateString(d->mag.frequency()) + "/" +
+        rateString(d->pose.frequency()) + "/" +
+        rateString(d->navsat.frequency());
+    const std::string tx_mav = rateString(d->hil_sensor.frequency());
+    const std::string rx_mav = rateString(d->hil_actuator_controls.frequency());
+    return tx_gz + "|" + rx_gz + "|" + tx_mav + "|" + rx_mav;
   }
 } // namespace pendarlab::sdk::mavlink_hub

@@ -1,24 +1,24 @@
 #pragma once
 
 #include <chrono>
-#include <cstdint>
+#include <cstddef>
 #include <functional>
 #include <memory>
 
 namespace pendarlab::sdk::mavlink_hub
 {
-  /** Measures a stream's event rate (events per second) for the agent report. The clock
-      is injectable so unit tests can drive deterministic frequencies instead of waiting
-      in real time. Thread-safe: note() may be called from any thread (e.g. a Gazebo or
-      MAVLink callback) and frequency() from any other thread (e.g. a report request).
-
-      The measured window opens at the first event after the previous read. frequency()
-      returns the average rate over that window and then resets it, so a sequence of
-      reads reports the rate since the previous read — a fresh report always reflects
-      the most recent activity. */
+  /** Measures a stream's event rate (events per second) for the agent report, using a
+      sliding window of the last kMaxSamples event timestamps. The clock is injectable so
+      unit tests can drive deterministic frequencies instead of waiting in real time.
+      Thread-safe: note() may be called from any thread (e.g. a Gazebo or MAVLink callback)
+      and frequency() from any other thread (e.g. a report request). Reading the frequency
+      does not reset the window, so successive reports reflect the recent activity. */
   class FrequencyCounter
   {
   public:
+    /// Maximum number of event timestamps kept in the sliding window.
+    static constexpr std::size_t kMaxSamples = 5;
+
     /// Time source used to mark events. Defaults to std::chrono::steady_clock.
     using Clock = std::function<std::chrono::steady_clock::time_point()>;
 
@@ -36,17 +36,17 @@ namespace pendarlab::sdk::mavlink_hub
     FrequencyCounter& operator=(const FrequencyCounter&) = delete;
 
     /** Records one event on the stream (one received/sent message or one Gazebo
-        subscription sample). Safe to call from any thread. */
+        subscription sample). Safe to call from any thread. Keeps only the kMaxSamples most
+        recent events. */
     void note();
 
-    /** @return the event rate in Hertz (events / seconds) over the current window, then
-        resets the window. Returns 0.0 when no event has been recorded since the previous
-        read or when the window has zero length (e.g. events and the read share the same
-        clock reading). */
+    /** @return the event rate in Hertz over the current sliding window: the number of
+        stored timestamps divided by the time between the newest and oldest of them.
+        Returns 0.0 when fewer than two timestamps are stored (no measurable span). */
     double frequency();
 
   private:
-    struct Impl;
-    std::unique_ptr<Impl> d;
+    struct FrequencyCounterImpl;
+    std::unique_ptr<FrequencyCounterImpl> d;
   };
 } // namespace pendarlab::sdk::mavlink_hub

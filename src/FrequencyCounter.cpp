@@ -1,20 +1,20 @@
 #include "FrequencyCounter.h"
 
 #include <mutex>
+#include <queue>
 
 namespace pendarlab::sdk::mavlink_hub
 {
-  struct FrequencyCounter::Impl
+  struct FrequencyCounter::FrequencyCounterImpl
   {
     Clock clock;
     std::mutex mtx;
-    bool window_open = false;
-    std::chrono::steady_clock::time_point window_start{};
-    std::uint64_t count = 0;
+    // Sliding window of the timestamps of the kMaxSamples most recent events, oldest first.
+    std::queue<std::chrono::steady_clock::time_point> samples;
   };
 
   /// Constructs a counter over the given time source. @param clock the time source.
-  FrequencyCounter::FrequencyCounter(Clock clock) : d(std::make_unique<Impl>())
+  FrequencyCounter::FrequencyCounter(Clock clock) : d(std::make_unique<FrequencyCounterImpl>())
   {
     d->clock = std::move(clock);
   }
@@ -25,35 +25,32 @@ namespace pendarlab::sdk::mavlink_hub
   FrequencyCounter::FrequencyCounter(FrequencyCounter&&) noexcept = default;
   FrequencyCounter& FrequencyCounter::operator=(FrequencyCounter&&) noexcept = default;
 
-  /// Records one event, opening the measurement window on the first event of a window.
+  /// Records one event, pushing its timestamp and trimming the window to the newest
+  /// kMaxSamples events.
   void FrequencyCounter::note()
   {
     std::lock_guard<std::mutex> lock(d->mtx);
-    if (!d->window_open) {
-      d->window_start = d->clock();
-      d->window_open = true;
+    d->samples.push(d->clock());
+    while (d->samples.size() > kMaxSamples) {
+      d->samples.pop();
     }
-    ++d->count;
   }
 
-  /// Reads the average rate over the current window and resets the window.
+  /// Computes the rate over the sliding window: stored timestamps divided by the span
+  /// between the newest and oldest, or 0.0 when there is no measurable span.
   double FrequencyCounter::frequency()
   {
     std::lock_guard<std::mutex> lock(d->mtx);
-    if (!d->window_open) {
+    if (d->samples.size() < 2) {
       return 0.0;
     }
-    const auto now = d->clock();
-    const auto elapsed = now - d->window_start;
-    if (elapsed <= std::chrono::steady_clock::duration::zero()) {
-      // Zero-length window: the rate is undefined; report zero instead of dividing
-      // by zero, and keep the window so its events are not lost to the next read.
+    const auto span = d->samples.back() - d->samples.front();
+    if (span <= std::chrono::steady_clock::duration::zero()) {
+      // All stored events share the same instant: no measurable span, so the rate is
+      // undefined; report zero instead of dividing by zero.
       return 0.0;
     }
-    const double hz = static_cast<double>(d->count) /
-                      std::chrono::duration<double>(elapsed).count();
-    d->window_open = false;
-    d->count = 0;
-    return hz;
+    return static_cast<double>(d->samples.size()) /
+           std::chrono::duration<double>(span).count();
   }
 } // namespace pendarlab::sdk::mavlink_hub
