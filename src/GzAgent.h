@@ -7,6 +7,7 @@
 #include "GzAgentConfig.h"
 
 #include <memory>
+#include <string>
 
 namespace pendarlab::sdk::mavlink_hub
 {
@@ -25,6 +26,12 @@ namespace pendarlab::sdk::mavlink_hub
     GzAgent(GzAgent&&) noexcept;
     /// Move assignment (the impl is a unique_ptr).
     GzAgent& operator=(GzAgent&&) noexcept;
+
+    /** Returns the agent's single-line frequency report: the receive rate of every Gazebo
+        topic it subscribes to, the send rate of the Gazebo topic it publishes, and the
+        receive/send rate of the HIL actuator-control / HIL sensor MAVLink messages it
+        receives/sends. Overrides the SDK Agent report. @return the report string. */
+    std::string report() const override;
 
   protected:
     /// Requests the Mavlink endpoint, wires and starts the sensor send-loop and actuator listener.
