@@ -52,10 +52,10 @@ TEST(GzAgentReport, ReportIsASingleLineWithoutLabels)
   const std::string text = agent.report();
   EXPECT_EQ(text.find('\n'), std::string::npos);
   EXPECT_EQ(text.find('\r'), std::string::npos);
-  EXPECT_FALSE(text.empty());
+  EXPECT_EQ(text.empty(), false);
   // The report carries only digits and separators — no inline labels or unit text.
   for (char c : text) {
-    EXPECT_TRUE(c == '0' || c == '/' || c == '|');
+    EXPECT_EQ((c == '0' || c == '/' || c == '|'), true);
   }
 }
 

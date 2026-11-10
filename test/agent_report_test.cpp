@@ -45,7 +45,7 @@ TEST(AgentReport, ReportIsASingleLineWithoutLabels)
   EXPECT_EQ(text.find('\r'), std::string::npos);
   // The report carries only digits and separators — no letters (no inline labels).
   for (char c : text) {
-    EXPECT_TRUE(c == '0' || c == '/' || c == '|');
+    EXPECT_EQ((c == '0' || c == '/' || c == '|'), true);
   }
 }
 
