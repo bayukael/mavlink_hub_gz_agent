@@ -18,6 +18,8 @@ find_package(sdformat14 REQUIRED)
 add_library(MavlinkHubGzAgent SHARED
   src/GzAgent.cpp
   src/GzAgentDefinition.cpp
+  src/AgentReport.cpp
+  src/FrequencyCounter.cpp
   src/PeriodicSender.cpp
   src/GzSensorConverter.cpp
 )
@@ -82,5 +84,41 @@ target_link_libraries(GzSensorConverterTest
   PRIVATE MavlinkHubGzAgent
   PRIVATE pendarlab::MavlinkHubSdk
   PRIVATE gz-msgs${GZ_MSGS_VER}::gz-msgs${GZ_MSGS_VER}
+  PRIVATE GTest::gtest_main
+)
+
+add_executable(FrequencyCounterTest
+  test/frequency_counter_test.cpp
+)
+target_include_directories(FrequencyCounterTest PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(FrequencyCounterTest
+  PRIVATE MavlinkHubGzAgent
+  PRIVATE pendarlab::MavlinkHubSdk
+  PRIVATE GTest::gtest_main
+)
+
+add_executable(AgentReportTest
+  test/agent_report_test.cpp
+)
+target_include_directories(AgentReportTest PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(AgentReportTest
+  PRIVATE MavlinkHubGzAgent
+  PRIVATE pendarlab::MavlinkHubSdk
+  PRIVATE GTest::gtest_main
+)
+
+add_executable(GzAgentReportTest
+  test/gz_agent_report_test.cpp
+)
+target_include_directories(GzAgentReportTest PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(GzAgentReportTest
+  PRIVATE MavlinkHubGzAgent
+  PRIVATE pendarlab::MavlinkHubSdk
   PRIVATE GTest::gtest_main
 )

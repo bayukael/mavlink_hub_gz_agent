@@ -1,5 +1,6 @@
 #include "GzAgent.h"
 
+#include "AgentReport.h"
 #include "HilActuatorConverter.h"
 #include "PeriodicSender.h"
 #include "GzSensorConverter.h"
@@ -31,6 +32,7 @@ namespace pendarlab::sdk::mavlink_hub
 
     PeriodicSender periodic_sender;
     std::unique_ptr<GzSensorConverter> gz_sensor_converter;
+    std::unique_ptr<AgentReport> agent_report;
 
     gz::transport::Node node;
     gz::transport::Node::Publisher gz_actuator_pub;
@@ -71,6 +73,7 @@ namespace pendarlab::sdk::mavlink_hub
       imu_data = _msg;
       imu_data_updated = true;
       last_imu_timestamp = std::chrono::steady_clock::now();
+      agent_report->noteImu();
     }
 
     /// Stores the latest barometer sample under the baro mutex and marks it updated.
@@ -80,6 +83,7 @@ namespace pendarlab::sdk::mavlink_hub
       baro_data = _msg;
       baro_data_updated = true;
       last_baro_timestamp = std::chrono::steady_clock::now();
+      agent_report->noteBaro();
     }
 
     /// Stores the latest magnetometer sample under the mag mutex and marks it updated.
@@ -89,6 +93,7 @@ namespace pendarlab::sdk::mavlink_hub
       mag_data = _msg;
       mag_data_updated = true;
       last_mag_timestamp = std::chrono::steady_clock::now();
+      agent_report->noteMag();
     }
 
     /// Stores the pose of this vehicle (matched by name) from a Pose_V under the pose mutex.
@@ -100,6 +105,7 @@ namespace pendarlab::sdk::mavlink_hub
           pose_data = _msg.pose(i);
           pose_data_updated = true;
           last_pose_timestamp = std::chrono::steady_clock::now();
+          agent_report->notePose();
         }
       }
     }
@@ -111,6 +117,7 @@ namespace pendarlab::sdk::mavlink_hub
       navsat_data = _msg;
       navsat_data_updated = true;
       last_navsat_timestamp = std::chrono::steady_clock::now();
+      agent_report->noteNavsat();
     }
   };
 
@@ -122,6 +129,9 @@ namespace pendarlab::sdk::mavlink_hub
     d->config = config;
     d->vehicle_name = config.vehicle_name;
     d->requester = std::move(requester);
+    // The report must exist before the subscriptions: a sensor callback can fire as soon
+    // as a topic is subscribed and it notes the receive on the report.
+    d->agent_report = std::make_unique<AgentReport>();
 
     d->node.Subscribe(config.imu_topic, &GzAgentImpl::imu_callback, d.get());
     d->node.Subscribe(config.baro_topic, &GzAgentImpl::baro_callback, d.get());
@@ -152,7 +162,11 @@ namespace pendarlab::sdk::mavlink_hub
     }
 
     d->periodic_sender.setSendFn([this](const mavlink_message_t& msg) {
-      return d->endpoint_user != nullptr && d->endpoint_user->writeMessage(msg).has_value();
+      const bool sent = d->endpoint_user != nullptr && d->endpoint_user->writeMessage(msg).has_value();
+      if (sent && msg.msgid == MAVLINK_MSG_ID_HIL_SENSOR) {
+        d->agent_report->noteHilSensorSend();
+      }
+      return sent;
     });
     d->periodic_sender.setCollectFn([this]() {
       SensorSnapshot snap;
@@ -203,6 +217,8 @@ namespace pendarlab::sdk::mavlink_hub
           gz::msgs::Double_V msg;
           // Ignores messages with msgid != HIL_ACTUATOR_CONTROLS (no publish).
           if (tryConvertHilActuatorControlsToDoubleV(packet.msg, msg)) {
+            d->agent_report->noteHilActuatorControlsReceive();
+            d->agent_report->noteActuatorPublish();
             d->gz_actuator_pub.Publish(msg);
           }
         });
@@ -224,5 +240,12 @@ namespace pendarlab::sdk::mavlink_hub
   bool GzAgent::doConfigure(const AgentConfig& config)
   {
     return true;
+  }
+
+  /// Returns the single-line frequency report built from the per-stream counters that the
+  /// Gazebo/MAVLink paths tick. @return the report string.
+  std::string GzAgent::report() const
+  {
+    return d->agent_report->build();
   }
 } // namespace pendarlab::sdk::mavlink_hub

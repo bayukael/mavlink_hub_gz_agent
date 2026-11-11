@@ -45,6 +45,31 @@ The Autopilot Software provides `HIL_ACTUATOR` mavlink messages, which `GzAgent`
 
 When the autopilot sends a `HIL_ACTUATOR_CONTROLS` (id 93) message, the agent decodes all 16 channels and publishes them as a `gz::msgs::Double_V` on the configured `actuator_topic`. Non-`HIL_ACTUATOR_CONTROLS` messages are ignored.
 
+## Report
+
+`GzAgent` overrides the SDK `Agent`'s `report()` with a single-line, numbers-only frequency report so that the flow of every bridged stream can be checked at a glance (a `0` marks a stream with no measurable traffic). The report is built by `AgentReport` from the receive rate of every Gazebo topic the agent subscribes to, the send rate of the Gazebo topic it publishes, and the receive/send rate of the two MAVLink message streams.
+
+Format: a single line of **integer** rates in Hz, rounded to the nearest integer. Values are separated by `/` within a group and by `|` between groups, in the four-group order:
+
+```
+tx_gz|rx_gz|tx_mav|rx_mav
+```
+
+| Group | # values | Position(s) | Meaning |
+| --- | --- | --- | --- |
+| `tx_gz` | 1 | 1 | Send rate of the published `actuator_topic`. |
+| `rx_gz` | 5 | 2–6 | Receive rates of the subscribed topics, in order `imu`, `baro`, `mag`, `pose`, `navsat`. |
+| `tx_mav` | 1 | 7 | Send rate of `HIL_SENSOR` messages. |
+| `rx_mav` | 1 | 8 | Receive rate of `HIL_ACTUATOR_CONTROLS` messages. |
+
+For example, with the world flowing at 250 Hz sensors and 50 Hz actuators:
+
+```
+50|250/250/250/20/10|250|50
+```
+
+A stream with no measurable traffic reads `0`. Each rate is measured over a sliding window of the five most recent events, so the report always reflects recent activity.
+
 ## Communication
 
 - To communicate with Gazebo, `GzAgent` uses the `gz::transport` system, which follows a publish/subscribe pattern.
